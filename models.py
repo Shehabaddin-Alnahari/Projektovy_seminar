@@ -3,14 +3,16 @@ from datetime import datetime, timezone
 
 class User(db.Model):
     __tablename__ = 'users'
-    id = db.Column(db.Integer, primary_key=True)
-    stag_username = db.Column(db.String(50), unique=True, nullable=False)
-    name = db.Column(db.String(100), nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    role = db.Column(db.String(20), default='teacher')  # teacher / approver / admin
     
-    # Vazba: Jeden uživatel může mít mnoho rezervací
-    reservations = db.relationship('Reservation', backref='author', lazy=True)
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(50), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    
+    password_hash = db.Column(db.String(256), nullable=False)
+    role = db.Column(db.String(20), default='teacher')  # 'teacher' nebo 'admin'
+    faculty = db.Column(db.String(50), nullable=True)
+    
+    reservations = db.relationship('Reservation', backref='user', lazy=True)
 
 class Room(db.Model):
     __tablename__ = 'rooms'
@@ -19,9 +21,9 @@ class Room(db.Model):
     building = db.Column(db.String(50), nullable=False)
     floor = db.Column(db.Integer)
     capacity = db.Column(db.Integer)
-    room_type = db.Column(db.String(50))  # např. PC laboratoř, pracovna...
-    faculty = db.Column(db.String(100))   # pracoviště/fakulta
-    notes = db.Column(db.Text)            # poznámky ze STAGu
+    room_type = db.Column(db.String(50))    # např. PC laboratoř, pracovna...
+    faculty = db.Column(db.String(100))
+    notes = db.Column(db.Text)      # poznámky ze STAGu
     
     reservations = db.relationship('Reservation', backref='room', lazy=True)
 
