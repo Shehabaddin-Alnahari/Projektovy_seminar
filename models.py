@@ -1,15 +1,16 @@
 from database import db
 from datetime import datetime, timezone
+from flask_login import UserMixin
 
-class User(db.Model):
+# UserMixin dodá Flasku metody, díky kterým ví, že je uživatel přihlášený
+class User(UserMixin, db.Model):
     __tablename__ = 'users'
     
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    
     password_hash = db.Column(db.String(256), nullable=False)
-    role = db.Column(db.String(20), default='teacher')  # 'teacher' nebo 'admin'
+    role = db.Column(db.String(20), default='teacher')
     faculty = db.Column(db.String(50), nullable=True)
     
     reservations = db.relationship('Reservation', backref='user', lazy=True)

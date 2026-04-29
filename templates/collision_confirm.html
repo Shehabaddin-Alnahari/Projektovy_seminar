@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-8">
+        <div class="card border-warning shadow">
+            <div class="card-header bg-warning text-dark fw-bold">
+                <h4 class="mb-0">⚠️ Pozor: Zjištěna časová kolize</h4>
+            </div>
+            <div class="card-body">
+                <p class="fs-5">
+                    Místnost <strong>{{ room.room_number }}</strong> ({{ room.building }}) 
+                    je v čase <strong>{{ start_t }} - {{ end_t }}</strong> již obsazena nebo na ni čeká jiná žádost.
+                </p>
+                
+                <div class="alert alert-secondary">
+                    <strong>Detail kolidující rezervace:</strong><br>
+                    Od: {{ kolize.start_time.strftime('%H:%M') }} do {{ kolize.end_time.strftime('%H:%M') }}<br>
+                    Důvod: {{ kolize.reason }}
+                </div>
+
+                <p>Plánujete i přesto podat žádost o tuto místnost a nechat rozhodnutí na administrátorovi?</p>
+
+                <form action="/reserve" method="POST" class="d-flex justify-content-end gap-3 mt-4">
+                    <input type="hidden" name="room_id" value="{{ room.id }}">
+                    <input type="hidden" name="res_date" value="{{ res_date }}">
+                    <input type="hidden" name="start_time" value="{{ start_t }}">
+                    <input type="hidden" name="end_time" value="{{ end_t }}">
+                    <input type="hidden" name="reason" value="{{ reason }}">
+                    <input type="hidden" name="force" value="True">
+
+                    <a href="/" class="btn btn-secondary">Ne, zrušit žádost</a>
+                    <button type="submit" class="btn btn-warning fw-bold">Ano, zažádat o výjimku</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Moje rezervace</h2>
+    <a href="/" class="btn btn-primary">+ Vytvořit novou rezervaci</a>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Místnost</th>
+                    <th>Datum</th>
+                    <th>Čas</th>
+                    <th>Důvod</th>
+                    <th>Status</th>
+                    <th>Akce</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for res in reservations %}
+                <tr>
+                    <td><strong>{{ res.room.room_number }}</strong></td>
+                    <td>{{ res.start_time.strftime('%d.%m.%Y') }}</td>
+                    <td>{{ res.start_time.strftime('%H:%M') }} - {{ res.end_time.strftime('%H:%M') }}</td>
+                    <td>{{ res.reason }}</td>
+                    <td>
+                        {% if res.status == 'pending' %}
+                            <span class="badge bg-warning text-dark">Čeká na schválení</span>
+                        {% elif res.status == 'approved' %}
+                            <span class="badge bg-success">Schváleno</span>
+                        {% elif res.status == 'rejected' %}
+                            <span class="badge bg-danger">Zamítnuto</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if res.status != 'rejected' %}
+                        <form action="/cancel-reservation/{{ res.id }}" method="POST" style="display:inline;">
+                            <button type="submit" class="btn btn-outline-danger btn-sm" onclick="return confirm('Opravdu chcete zrušit tuto rezervaci?')">Zrušit</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="text-center text-muted py-4">Zatím nemáte žádné rezervace.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
