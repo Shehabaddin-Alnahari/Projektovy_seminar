@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="mb-4">
+    <h2>Schvalovací panel Administrátora</h2>
+    <p class="text-muted">Zde vidíte všechny žádosti o rezervaci napříč systémem, které čekají na vyřízení.</p>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body p-0 table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th>Žadatel</th>
+                    <th>Místnost</th>
+                    <th>Datum a Čas</th>
+                    <th>Důvod</th>
+                    <th>Akce</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for res in reservations %}
+                <tr>
+                    <td>
+                        <strong>{{ res.user.username }}</strong><br>
+                        <small class="text-muted">{{ res.user.email }}</small>
+                    </td>
+                    <td>
+                        <strong>{{ res.room.room_number }}</strong><br>
+                        <span class="badge bg-secondary">{{ res.room.building }}</span>
+                    </td>
+                    <td>
+                        {{ res.start_time.strftime('%d.%m.%Y') }}<br>
+                        <span class="text-primary fw-bold">{{ res.start_time.strftime('%H:%M') }} - {{ res.end_time.strftime('%H:%M') }}</span>
+                    </td>
+                    <td>{{ res.reason }}</td>
+                    <td>
+                        <div class="d-flex gap-2">
+                            <!-- Tlačítko Schválit -->
+                            <form action="/approve/{{ res.id }}" method="POST">
+                                <button type="submit" class="btn btn-success btn-sm">✔️ Schválit</button>
+                            </form>
+                            <!-- Tlačítko Zamítnout -->
+                            <form action="/reject-admin/{{ res.id }}" method="POST">
+                                <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Opravdu chcete tuto žádost zamítnout?')">❌ Zamítnout</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center text-muted py-5">
+                        <h4>Žádné nové žádosti</h4>
+                        <p>Všechny rezervace jsou aktuálně vyřízené.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

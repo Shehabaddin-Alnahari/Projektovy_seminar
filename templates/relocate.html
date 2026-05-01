@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center mt-4">
+    <div class="col-md-8">
+        <div class="card border-danger shadow">
+            <div class="card-header bg-danger text-white fw-bold">
+                <h4 class="mb-0">⚠️ Nutný přesun výuky (Kolize)</h4>
+            </div>
+            <div class="card-body">
+                <p class="fs-5">Schválením této výjimky <strong>vyhodíte z místnosti {{ new_res.room.room_number }}</strong> stávající schválenou akci. Vyberte prosím, kam stávající akci přesunete.</p>
+                
+                <div class="row mt-4">
+                    <!-- Nová žádost -->
+                    <div class="col-md-6">
+                        <div class="alert alert-success h-100">
+                            <h5 class="alert-heading">Nově schvalujete:</h5>
+                            <hr>
+                            <strong>Důvod:</strong> {{ new_res.reason }}<br>
+                            <strong>Žadatel:</strong> {{ new_res.user.username }}<br>
+                            <strong>Čas:</strong> {{ new_res.start_time.strftime('%H:%M') }} - {{ new_res.end_time.strftime('%H:%M') }}
+                        </div>
+                    </div>
+                    
+                    <!-- Akce, která musí jít pryč -->
+                    <div class="col-md-6">
+                        <div class="alert alert-secondary h-100">
+                            <h5 class="alert-heading text-danger">Bude přesunuto/zrušeno:</h5>
+                            <hr>
+                            <strong>Akce:</strong> {{ bumped_res.reason }}<br>
+                            <strong>Patří:</strong> {{ bumped_res.user.username }}<br>
+                            <strong>Čas:</strong> {{ bumped_res.start_time.strftime('%H:%M') }} - {{ bumped_res.end_time.strftime('%H:%M') }}
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="my-4">
+
+                <form action="/confirm-relocation" method="POST">
+                    <input type="hidden" name="new_res_id" value="{{ new_res.id }}">
+                    <input type="hidden" name="bumped_res_id" value="{{ bumped_res.id }}">
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Vyberte náhradní místnost pro vytlačenou akci:</label>
+                        <select name="nahradni_room_id" class="form-select form-select-lg" required>
+                            <option value="" disabled selected>-- Vyberte volnou místnost --</option>
+                            {% for room in volne_mistnosti %}
+                                <option value="{{ room.id }}">{{ room.room_number }} (Kapacita: {{ room.capacity }}, Budova: {{ room.building }})</option>
+                            {% else %}
+                                <option value="" disabled>V tento čas nejsou žádné volné místnosti!</option>
+                            {% endfor %}
+                            <option value="cancel" class="text-danger fw-bold">❌ Zrušit vytlačenou akci bez náhrady</option>
+                        </select>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2">
+                        <a href="/admin" class="btn btn-outline-secondary">Zpět na schvalování</a>
+                        <button type="submit" class="btn btn-danger fw-bold">Potvrdit přesun a Schválit</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

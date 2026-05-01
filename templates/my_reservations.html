@@ -6,50 +6,112 @@
     <a href="/" class="btn btn-primary">+ Vytvořit novou rezervaci</a>
 </div>
 
-<div class="card shadow-sm">
-    <div class="card-body p-0">
-        <table class="table table-hover mb-0 align-middle">
-            <thead class="table-light">
-                <tr>
-                    <th>Místnost</th>
-                    <th>Datum</th>
-                    <th>Čas</th>
-                    <th>Důvod</th>
-                    <th>Status</th>
-                    <th>Akce</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for res in reservations %}
-                <tr>
-                    <td><strong>{{ res.room.room_number }}</strong></td>
-                    <td>{{ res.start_time.strftime('%d.%m.%Y') }}</td>
-                    <td>{{ res.start_time.strftime('%H:%M') }} - {{ res.end_time.strftime('%H:%M') }}</td>
-                    <td>{{ res.reason }}</td>
-                    <td>
-                        {% if res.status == 'pending' %}
-                            <span class="badge bg-warning text-dark">Čeká na schválení</span>
-                        {% elif res.status == 'approved' %}
-                            <span class="badge bg-success">Schváleno</span>
-                        {% elif res.status == 'rejected' %}
-                            <span class="badge bg-danger">Zamítnuto</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if res.status != 'rejected' %}
-                        <form action="/cancel-reservation/{{ res.id }}" method="POST" style="display:inline;">
-                            <button type="submit" class="btn btn-outline-danger btn-sm" onclick="return confirm('Opravdu chcete zrušit tuto rezervaci?')">Zrušit</button>
-                        </form>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="6" class="text-center text-muted py-4">Zatím nemáte žádné rezervace.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<div class="row">
+    <!-- LEVÁ LIŠTA (Sidebar) -->
+    <div class="col-md-3 mb-4">
+        <div class="nav flex-column nav-pills shadow-sm bg-white rounded p-2" id="v-pills-tab" role="tablist" aria-orientation="vertical">
+            <button class="nav-link active text-start fw-bold" id="v-pills-current-tab" data-bs-toggle="pill" data-bs-target="#v-pills-current" type="button" role="tab">
+                🕒 Současné
+            </button>
+            <button class="nav-link text-start fw-bold" id="v-pills-history-tab" data-bs-toggle="pill" data-bs-target="#v-pills-history" type="button" role="tab">
+                📚 Historie
+            </button>
+        </div>
+    </div>
+
+    <!-- PRAVÁ ČÁST (Obsah) -->
+    <div class="col-md-9">
+        <div class="tab-content" id="v-pills-tabContent">
+            
+            <!-- ZÁLOŽKA 1: SOUČASNÉ -->
+            <div class="tab-pane fade show active" id="v-pills-current" role="tabpanel">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-white"><h5 class="m-0 text-primary">Aktuální a čekající žádosti</h5></div>
+                    <div class="card-body p-0 table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Místnost</th>
+                                    <th>Datum a Čas</th>
+                                    <th>Status</th>
+                                    <th>Akce</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for res in soucasne %}
+                                <tr>
+                                    <td><strong>{{ res.room.room_number }}</strong></td>
+                                    <td>
+                                        {{ res.start_time.strftime('%d.%m.%Y') }}<br>
+                                        <small class="text-muted">{{ res.start_time.strftime('%H:%M') }} - {{ res.end_time.strftime('%H:%M') }}</small>
+                                    </td>
+                                    <td>
+                                        {% if res.status == 'pending' %}
+                                            <span class="badge bg-warning text-dark">Čeká na schválení</span>
+                                        {% elif res.status == 'approved' %}
+                                            <span class="badge bg-success">Schváleno</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <form action="/cancel-reservation/{{ res.id }}" method="POST" style="display:inline;">
+                                            <button type="submit" class="btn btn-outline-danger btn-sm" onclick="return confirm('Opravdu chcete zrušit tuto rezervaci?')">Zrušit</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted py-4">Nemáte žádné aktuální rezervace.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ZÁLOŽKA 2: HISTORIE -->
+            <div class="tab-pane fade" id="v-pills-history" role="tabpanel">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-white"><h5 class="m-0 text-secondary">Proběhlé a zrušené žádosti</h5></div>
+                    <div class="card-body p-0 table-responsive">
+                        <table class="table table-hover mb-0 align-middle text-muted">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Místnost</th>
+                                    <th>Datum a Čas</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for res in historie %}
+                                <tr>
+                                    <td><strong>{{ res.room.room_number }}</strong></td>
+                                    <td>
+                                        {{ res.start_time.strftime('%d.%m.%Y') }}<br>
+                                        <small>{{ res.start_time.strftime('%H:%M') }} - {{ res.end_time.strftime('%H:%M') }}</small>
+                                    </td>
+                                    <td>
+                                        {% if res.status == 'rejected' %}
+                                            <span class="badge bg-danger">Zamítnuto / Zrušeno</span>
+                                        {% elif res.status == 'approved' %}
+                                            <span class="badge bg-secondary">Proběhlo (Schváleno)</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Vypršelo</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="3" class="text-center py-4">Historie je prázdná.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
     </div>
 </div>
 {% endblock %}

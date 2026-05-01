@@ -22,6 +22,26 @@ login_manager.login_view = 'login' # Sem tě to hodí, když nejsi přihlášen�
 login_manager.login_message = "Pro rezervaci místnosti se prosím přihlaste."
 login_manager.login_message_category = "warning"
 
+# --- POMOCNÁ FUNKCE: UNIVERZÁLNÍ DETEKCE KOLIZÍ ---
+def find_collision(room_id, start_dt, end_dt, statuses=['pending', 'approved'], ignore_res_id=None):
+    """
+    Najde, jestli v dané místnosti a čase existuje nějaká rezervace.
+    - statuses: Seznam stavů, které považujeme za kolizi (výchozí: čekající a schválené).
+    - ignore_res_id: ID rezervace, kterou chceme při hledání ignorovat (hodí se při schvalování).
+    """
+    query = Reservation.query.filter(
+        Reservation.room_id == room_id,
+        Reservation.status.in_(statuses),
+        Reservation.start_time < end_dt,
+        Reservation.end_time > start_dt
+    )
+    
+    # Pokud schvalujeme konkrétní žádost, nechceme, aby detekovala kolizi sama se sebou
+    if ignore_res_id:
+        query = query.filter(Reservation.id != ignore_res_id)
+        
+    return query.first()
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
@@ -108,10 +128,20 @@ def index():
 @app.route('/my-reservations')
 @login_required
 def my_reservations():
-    user_reservations = Reservation.query.filter_by(user_id=current_user.id).order_by(Reservation.start_time.desc()).all()
-    return render_template('my_reservations.html', reservations=user_reservations)
+    now = datetime.now()
+    
+    vsechny_rezervace = Reservation.query.filter_by(user_id=current_user.id).order_by(Reservation.start_time.desc()).all()
+    
+    soucasne = []
+    historie = []
+    
+    for res in vsechny_rezervace:
+        if res.status != 'rejected' and res.end_time >= now:
+            soucasne.append(res)
+        else:
+            historie.append(res)
 
-@app.route('/cancel-reservation/<int:res_id>', methods=['POST'])
+    return render_template('my_reservations.html', soucasne=soucasne, historie=historie)
 @login_required
 def cancel_reservation(res_id):
     reservation = Reservation.query.get_or_404(res_id)
@@ -145,12 +175,7 @@ def make_reservation():
             return redirect(url_for('index'))
 
         # Hledáme kolizi
-        kolize = Reservation.query.filter(
-            Reservation.room_id == room_id,
-            Reservation.status.in_(['pending', 'approved']),
-            Reservation.start_time < end_dt,
-            Reservation.end_time > start_dt
-        ).first()
+        kolize = find_collision(room_id, start_dt, end_dt)
 
         # POKUD JE KOLIZE A UŽIVATEL JI JEŠTĚ NEPOTVRDIL:
         if kolize and not force:
@@ -183,6 +208,117 @@ def make_reservation():
         flash(f'Chyba: {str(e)}', 'danger')
 
     return redirect(url_for('my_reservations'))
+
+# ==========================================
+# ADMIN SEKCE
+# ==========================================
+
+@app.route('/admin')
+@login_required
+def admin_panel():
+    if current_user.role != 'admin':
+        flash('Do této sekce mají přístup pouze administrátoři.', 'danger')
+        return redirect(url_for('my_reservations'))
+    
+    pending_reservations = Reservation.query.filter_by(status='pending').order_by(Reservation.start_time.asc()).all()
+    
+    return render_template('admin.html', reservations=pending_reservations)
+
+# --- UPRAVENÁ FUNKCE PRO SCHVÁLENÍ ---
+@app.route('/approve/<int:res_id>', methods=['POST'])
+@login_required
+def approve_reservation(res_id):
+    if current_user.role != 'admin':
+        flash('Nemáte oprávnění k této akci.', 'danger')
+        return redirect(url_for('my_reservations'))
+        
+    reservation = Reservation.query.get_or_404(res_id)
+    
+    kolize = find_collision(
+        room_id=reservation.room_id, 
+        start_dt=reservation.start_time, 
+        end_dt=reservation.end_time, 
+        statuses=['approved'], 
+        ignore_res_id=reservation.id
+    )
+
+    if kolize:
+        return redirect(url_for('relocate_booking', new_res_id=reservation.id, bumped_res_id=kolize.id))
+
+    reservation.status = 'approved'
+    db.session.commit()
+    
+    flash('Rezervace byla úspěšně schválena.', 'success')
+    return redirect(url_for('admin_panel'))
+
+# --- NOVÁ OBRAZOVKA PRO PŘESUNUTÍ VÝUKY ---
+@app.route('/relocate/<int:new_res_id>/<int:bumped_res_id>')
+@login_required
+def relocate_booking(new_res_id, bumped_res_id):
+    if current_user.role != 'admin':
+        return redirect(url_for('my_reservations'))
+
+    new_res = Reservation.query.get_or_404(new_res_id)
+    bumped_res = Reservation.query.get_or_404(bumped_res_id)
+
+    # Najdeme všechny ostatní schválené akce v tento čas, abychom věděli, KAM NEPŘESOUVAT
+    obsazene_mistnosti = Reservation.query.filter(
+        Reservation.status == 'approved',
+        Reservation.start_time < bumped_res.end_time,
+        Reservation.end_time > bumped_res.start_time
+    ).all()
+    
+    obsazene_ids = [r.room_id for r in obsazene_mistnosti]
+    obsazene_ids.append(new_res.room_id)
+
+    # Najdeme všechny místnosti, které JSOU VOLNÉ
+    volne_mistnosti = Room.query.filter(~Room.id.in_(obsazene_ids)).all()
+
+    return render_template('relocate.html', new_res=new_res, bumped_res=bumped_res, volne_mistnosti=volne_mistnosti)
+
+# --- POTVRZENÍ PŘESUNU ---
+@app.route('/confirm-relocation', methods=['POST'])
+@login_required
+def confirm_relocation():
+    if current_user.role != 'admin':
+        return redirect(url_for('my_reservations'))
+
+    new_res_id = request.form.get('new_res_id')
+    bumped_res_id = request.form.get('bumped_res_id')
+    nahradni_room_id = request.form.get('nahradni_room_id')
+
+    new_res = Reservation.query.get_or_404(new_res_id)
+    bumped_res = Reservation.query.get_or_404(bumped_res_id)
+
+    if nahradni_room_id == 'cancel':
+        # Admin se rozhodl původní výuku úplně vymazat/zrušit
+        bumped_res.status = 'rejected'
+        flash('Původní akce byla zrušena bez náhrady.', 'warning')
+    else:
+        # Admin vybral náhradní učebnu - provedeme přesun!
+        bumped_res.room_id = nahradni_room_id
+        nova_mistnost = Room.query.get(nahradni_room_id)
+        flash(f'Původní výuka byla přesunuta do místnosti {nova_mistnost.room_number}.', 'success')
+
+    # Nyní můžeme bezpečně schválit tu novou žádost
+    new_res.status = 'approved'
+    db.session.commit()
+
+    return redirect(url_for('admin_panel'))
+
+@app.route('/reject-admin/<int:res_id>', methods=['POST'])
+@login_required
+def reject_reservation_admin(res_id):
+    if current_user.role != 'admin':
+        flash('Nemáte oprávnění k této akci.', 'danger')
+        return redirect(url_for('my_reservations'))
+        
+    reservation = Reservation.query.get_or_404(res_id)
+    reservation.status = 'rejected'
+    db.session.commit()
+    
+    flash('Rezervace byla zamítnuta.', 'warning')
+    return redirect(url_for('admin_panel'))
 
 if __name__ == '__main__':
     app.run(debug=True)
